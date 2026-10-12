@@ -1,0 +1,17 @@
+{
+  "name": "Mi Quincena",
+  "short_name": "Mi Quincena",
+  "description": "Tu plata, ordenada por periodo de pago",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0C1614",
+  "theme_color": "#0E6B5B",
+  "lang": "es",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

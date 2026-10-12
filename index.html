@@ -1,5 +1,13 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Mi Quincena</title>
+<meta name="theme-color" content="#0E6B5B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mi Quincena">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="stylesheet" href="vendor/fonts/bricolage-grotesque/index.css">
 <link rel="stylesheet" href="vendor/fonts/figtree/index.css">
 <style>
@@ -1052,43 +1060,13 @@ function localPersist(){
 }
 function readLocal(){ try{ const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
 
-/* ---------- app nativa (Capacitor / iOS) ---------- */
-const CAP = window.Capacitor;
-const isNative = !!(CAP && typeof CAP.isNativePlatform === "function" && CAP.isNativePlatform());
-const plug = n => CAP && CAP.Plugins && CAP.Plugins[n];
-function nativePersist(){
-  const P = plug("Preferences");
-  return {
-    async save(state){
-      const v = JSON.stringify(state);
-      try{ localStorage.setItem(LS_KEY, v); }catch(e){}
-      await P.set({key:LS_KEY, value:v});
-    },
-    async saveArchive(k, data){ await P.set({key:archLocalKey(k), value:JSON.stringify(data)}); },
-    async loadArchive(k){ try{ const r = (await P.get({key:archLocalKey(k)})).value; return r ? JSON.parse(r) : null; }catch(e){ return null; } },
-    async read(){ try{ const r = (await P.get({key:LS_KEY})).value; return r ? JSON.parse(r) : null; }catch(e){ return null; } }
-  };
-}
-function toBase64(buf){
-  const b = new Uint8Array(buf); let bin = "";
-  for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-const nativeDownloads = {async save({filename, data}){
-  const {uri} = await plug("Filesystem").writeFile({path:filename, data:toBase64(data), directory:"CACHE"});
-  try{ await plug("Share").share({title:filename, url:uri, dialogTitle:"Estado de cuenta"}); }
-  catch(e){ if (/cancel/i.test(String(e && (e.message || e)))) throw {code:"declined"}; throw e; }
-}};
-
 async function init(){
   let db = null, user = null;
   if (window.claude && typeof window.claude.use === "function"){
     const timeout = new Promise(r => setTimeout(() => r(null), 8000));
     try { [db, user] = await Promise.all([Promise.race([claude.use("db"), timeout]), Promise.race([claude.use("user"), timeout])]); } catch(e){}
   }
-  if (isNative){
-    downloadsApi = nativeDownloads;
-  } else if (window.claude && typeof window.claude.use === "function"){
+  if (window.claude && typeof window.claude.use === "function"){
     claude.use("downloads").then(d => { downloadsApi = d; if (d && view === "estado") render(); }).catch(() => {});
   } else {
     downloadsApi = {async save({filename, data}){
@@ -1124,9 +1102,6 @@ async function init(){
       const snap = await ref.get();
       S = snap.exists ? Object.assign(blankState(), JSON.parse(JSON.stringify(snap.data()))) : (readLocal() ? Object.assign(blankState(), readLocal()) : blankState());
     }catch(e){ S = Object.assign(blankState(), readLocal() || {}); }
-  } else if (isNative){
-    persist = nativePersist();
-    S = Object.assign(blankState(), (await persist.read()) || readLocal() || {});
   } else {
     persist = localPersist();
     S = Object.assign(blankState(), readLocal() || {});
@@ -1140,6 +1115,7 @@ async function init(){
   setInterval(() => { if (S && S.income && catchUp()){ save(); render(); flushArchives(); } }, 60000);
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden && S && persist){ clearTimeout(saveTimer); persist.save(S); } });
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
 init();
 })();
 </script>
