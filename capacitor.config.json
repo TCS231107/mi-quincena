@@ -1,0 +1,9 @@
+{
+  "appId": "com.miquincena.app",
+  "appName": "Mi Quincena",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0C1614"
+  }
+}

@@ -1,7 +1,7 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>Mi Quincena</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="vendor/fonts/bricolage-grotesque/index.css">
+<link rel="stylesheet" href="vendor/fonts/figtree/index.css">
 <style>
 /* Layout: one phone-width app column, bottom tab bar; jade = money left, marigold = goals */
 :root{
@@ -10,8 +10,8 @@
   --c-save:#3567C9; --c-goal:#D99A2B; --c-fixed:#8457BF; --c-spend:#D4553A; --c-free:#0E6B5B;
   --danger:#C23A2B; --danger-soft:#F8E0DC;
   --shadow:0 1px 2px rgba(16,35,31,.06),0 8px 24px rgba(16,35,31,.06);
-  --f-display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
-  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-display:"Bricolage Grotesque Variable","Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
+  --f-body:"Figtree Variable","Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0C1614; --surface:#14211E; --surface-2:#192925; --ink:#E4EEEB; --muted:#93A7A1; --line:#26372F;
@@ -26,7 +26,8 @@
   --danger:#F07B6A; --danger-soft:#3A1E1A; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
   color-scheme:dark }
 
-*{box-sizing:border-box}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums}
 .wrap{max-width:460px;margin:0 auto;padding-inline:16px;padding-block:20px 110px;min-height:100%}
@@ -45,7 +46,7 @@ p{margin:0}
 .flat{background:var(--surface-2);border-radius:14px;padding:14px}
 
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:.86rem}
-input,select{font:inherit;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;width:100%;min-width:0}
+input,select{font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;width:100%;min-width:0}
 input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
 .money-input{font-family:var(--f-display);font-size:1.9rem;font-weight:700;padding:14px 16px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
@@ -788,8 +789,8 @@ function periodSelect(periods, selKey, id){
 }
 function loadScript(src){ return new Promise((res, rej) => { const el = document.createElement("script"); el.src = src; el.onload = res; el.onerror = rej; document.head.appendChild(el); }); }
 async function getJsPDF(){
-  if (!window.jspdf) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-  if (!window.jspdf.jsPDF.API.autoTable) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js");
+  if (!window.jspdf) await loadScript("vendor/jspdf.umd.min.js");
+  if (!window.jspdf.jsPDF.API.autoTable) await loadScript("vendor/jspdf.plugin.autotable.min.js");
   return window.jspdf.jsPDF;
 }
 const pdfTxt = t => String(t ?? "").replace(/[^\x20-\xFF]/g, "");
@@ -1051,13 +1052,43 @@ function localPersist(){
 }
 function readLocal(){ try{ const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
 
+/* ---------- app nativa (Capacitor / iOS) ---------- */
+const CAP = window.Capacitor;
+const isNative = !!(CAP && typeof CAP.isNativePlatform === "function" && CAP.isNativePlatform());
+const plug = n => CAP && CAP.Plugins && CAP.Plugins[n];
+function nativePersist(){
+  const P = plug("Preferences");
+  return {
+    async save(state){
+      const v = JSON.stringify(state);
+      try{ localStorage.setItem(LS_KEY, v); }catch(e){}
+      await P.set({key:LS_KEY, value:v});
+    },
+    async saveArchive(k, data){ await P.set({key:archLocalKey(k), value:JSON.stringify(data)}); },
+    async loadArchive(k){ try{ const r = (await P.get({key:archLocalKey(k)})).value; return r ? JSON.parse(r) : null; }catch(e){ return null; } },
+    async read(){ try{ const r = (await P.get({key:LS_KEY})).value; return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+  };
+}
+function toBase64(buf){
+  const b = new Uint8Array(buf); let bin = "";
+  for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+const nativeDownloads = {async save({filename, data}){
+  const {uri} = await plug("Filesystem").writeFile({path:filename, data:toBase64(data), directory:"CACHE"});
+  try{ await plug("Share").share({title:filename, url:uri, dialogTitle:"Estado de cuenta"}); }
+  catch(e){ if (/cancel/i.test(String(e && (e.message || e)))) throw {code:"declined"}; throw e; }
+}};
+
 async function init(){
   let db = null, user = null;
   if (window.claude && typeof window.claude.use === "function"){
     const timeout = new Promise(r => setTimeout(() => r(null), 8000));
     try { [db, user] = await Promise.all([Promise.race([claude.use("db"), timeout]), Promise.race([claude.use("user"), timeout])]); } catch(e){}
   }
-  if (window.claude && typeof window.claude.use === "function"){
+  if (isNative){
+    downloadsApi = nativeDownloads;
+  } else if (window.claude && typeof window.claude.use === "function"){
     claude.use("downloads").then(d => { downloadsApi = d; if (d && view === "estado") render(); }).catch(() => {});
   } else {
     downloadsApi = {async save({filename, data}){
@@ -1093,6 +1124,9 @@ async function init(){
       const snap = await ref.get();
       S = snap.exists ? Object.assign(blankState(), JSON.parse(JSON.stringify(snap.data()))) : (readLocal() ? Object.assign(blankState(), readLocal()) : blankState());
     }catch(e){ S = Object.assign(blankState(), readLocal() || {}); }
+  } else if (isNative){
+    persist = nativePersist();
+    S = Object.assign(blankState(), (await persist.read()) || readLocal() || {});
   } else {
     persist = localPersist();
     S = Object.assign(blankState(), readLocal() || {});
@@ -1105,6 +1139,7 @@ async function init(){
   // si la app queda abierta y cambia de periodo
   setInterval(() => { if (S && S.income && catchUp()){ save(); render(); flushArchives(); } }, 60000);
 }
+document.addEventListener("visibilitychange", () => { if (document.hidden && S && persist){ clearTimeout(saveTimer); persist.save(S); } });
 init();
 })();
 </script>
